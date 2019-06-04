@@ -1,26 +1,34 @@
 {
-  "name": "alicloud",
+  "name": "alicloud-autoscale",
   "version": "1.0.0",
-  "description": "",
+  "description": "FortiGate Autoscale Project",
   "main": "index.js",
-  "dependencies": {
-    "@alicloud/pop-core": "^1.7.6",
-    "ali-oss": "^6.1.0",
-    "crypto": "^1.0.1",
-    "raw-body": "^2.3.3",
-    "tablestore": "^4.3.1",
-    "uuid": "^3.3.2"
+  "directories": {
+    "test": "tests"
   },
+  "dependencies": {},
+  "scripts": {
+    "pretest": "eslint --fix .",
+    "deploy": "dpl",
+    "build":"scripts/make-dist.js alicloud-ASG-deployment",
+    "test": "nyc mocha './{,!(node_modules|dist|scripts)/**/test/mocha/}*.js'",
+    "build-all": "scripts/make-dist.js all",
+    "build-project": "scripts/make-dist.js project",
+    "build-alicloud-ASG":"scripts/make-dist.js alicloud-ASG-deployment"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fortinet/alicloud-autoscale"
+  },
+  "author": "fortinet",
+  "license": "MIT",
   "devDependencies": {
+    "dpl": "^3.8.0",
     "eslint": "^5.4.0",
     "eslint-plugin-json": "^1.2.1",
     "eslint-plugin-mocha": "^5.2.0",
     "mocha": "^5.2.0",
-    "nyc": "^13.0.1"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC"
+    "nyc": "^13.0.1",
+    "rimraf": "^2.6.2"
+  }
 }

@@ -458,8 +458,6 @@ resource "alicloud_ots_table" "table_FortiGateAutoscale" {
   max_version = "1"
 
 }
-// OTS table. If not created in Terraform they will create as part of the AutoScale Function code.
-// In this case they will not be managed by Terraform and a destroy will not work
 
 
 //OSS
@@ -473,7 +471,7 @@ config system auto-scale
    set status enable
    set sync-interface {SYNC_INTERFACE}
    set role master
-   set callback-url https://${data.alicloud_account.current.id}.${var.region}-internal.fc.aliyuncs.com/2016-08-15/proxy/${alicloud_fc_service.fortigate-autoscale-service.name}/${alicloud_fc_function.fortigate-autoscale.name}/
+   set callback-url {CALLBACK_URL}
    set psksecret {PSK_SECRET}
 
 end
@@ -520,7 +518,7 @@ resource "alicloud_fc_function" "fortigate-autoscale" {
   service = "${alicloud_fc_service.fortigate-autoscale-service.name}"
   name = "${var.cluster_name}-${random_string.random_name_post.result}"
   description = "FortiGate AutoScale - AliCloud Created by Terraform"
-  filename = "./FortiGateAutoScaleFunctionCode.zip"
+  filename = "../dist/alicloud-autoscale.zip"
   memory_size = "512"
   runtime = "nodejs8"
   handler = "index.handler",

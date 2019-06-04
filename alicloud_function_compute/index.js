@@ -6,6 +6,8 @@ Author: Fortinet
 
 exports = module.exports;
 
+
+
 const Core = require('@alicloud/pop-core');
 const CoreFunctions = require('./core/core-functions');
 const AutoscaleHandler = require('./core/autoscale-handler');
@@ -16,6 +18,8 @@ const getRawBody = require('raw-body');
 const dbDefinitions = require('./core/db-definitions');
 const DB = dbDefinitions.getTables('', '');
 const AutoScaleCore = require('./core/core-functions');
+
+
 
 const
     REGION_ID = process.env.REGION_ID,
@@ -242,10 +246,9 @@ class AliCloud extends CloudPlatform {
             vpcId: data.row.attributes[5].columnValue,
             primaryPrivateIpAddress: data.row.attributes[1].columnValue
         };
-
         return masterDataDigest;
-
     }
+
     async terminateInstanceInAutoScalingGroup(instance) {
         var InstanceParams = {
             RegionId: REGION_ID,
@@ -267,10 +270,8 @@ class AliCloud extends CloudPlatform {
     }
 
     async putMasterRecord(candidateInstance, voteState) {
-
         console.log('Updating Master Record Database', candidateInstance);
         var dateToInt = Date.now();
-
         var params = {
             tableName: DB.ELECTION.tableMeta.tableName,
             condition: new tableStoreClient.Condition(
@@ -339,8 +340,6 @@ class AliCloud extends CloudPlatform {
             }
         }
         return false;
-
-
     }
 
     async getTablesInTableStoreInstance() {
@@ -397,6 +396,7 @@ class AliCloud extends CloudPlatform {
            result.Instances.Instance[0].NetworkInterfaces &&
            result.Instances.Instance[0].NetworkInterfaces.NetworkInterface[0].PrimaryIpAddress) {
             result.instanceId = result.Instances.Instance[0].InstanceId;
+            // TODO: Add into wrapper new virtual-machine wrapper class
             var resultDigest = {
                 instanceId: result.Instances.Instance[0].InstanceId,
                 primaryPrivateIp: result.Instances.Instance[0].NetworkInterfaces.
@@ -411,8 +411,9 @@ class AliCloud extends CloudPlatform {
         }
     }
     getCallbackEndpointUrl(fromContext) {
-        return (`${fromContext.accountId}.${fromContext.region}.${REGION_ID}.fc.aliyuncs.com
-          /2016-08-15/proxy/${fromContext.service.name}/${fromContext.function.name}/`);
+        return (`https://${fromContext.accountId}.${REGION_ID}` +
+            '-internal.fc.aliyuncs.com/2016-08-15/proxy/' +
+            `${fromContext.service.name}/${fromContext.function.name}/`);
     }
 
     async getInstanceHealthCheck(instance, heartBeatInterval = null) {
@@ -536,7 +537,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
         this._step = '';
         this._selfInstance = null;
         this._masterRecord = null;
-        this._selfHealthCheck;
+        this._selfHealthCheck = null;
         this.masterScalingGroupName = process.env.AUTO_SCALING_GROUP_NAME;
         this.scalingGroupName = process.env.AUTO_SCALING_GROUP_NAME;
     }
@@ -566,7 +567,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
         }
     }
 
-    async completeGetConfigLifecycleAction(instanceId, success) {
+    async completeGetConfigLifecycleAction() {
         return await Promise.resolve(true);
     }
 
@@ -607,7 +608,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
     }
 
     async getMasterConfig(callbackUrl) {
-        return await this._baseConfig.replace(/\$\{CALLBACK_URL}/, callbackUrl);
+        return await this._baseConfig.replace(new RegExp('{CALLBACK_URL}', 'gm'),callbackUrl);
     }
 
     async getBaseConfig() {
@@ -871,7 +872,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
             statusSuccess = status && status === 'success' || false;
 
         let parameters = {},
-            masterHealthCheck, lifecycleShouldAbandon = false;
+            masterHealthCheck;
 
         parameters.instanceId = instanceId;
         parameters.scalingGroupName = this.scalingGroupName;
@@ -958,7 +959,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
                 // counter to set a time based condition to end this waiting. If script execution
                 // time is close to its timeout (6 seconds - abount 1 inteval + 1 second), ends the
                 // waiting to allow for the rest of logic to run
-                counter = currentCount => {
+                counter = () => {
                     if (Date.now() < SCRIPT_EXECUTION_EXPIRE_TIME - 6000) {
                         return false;
                     }
@@ -993,8 +994,8 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
                 }
                 await this.removeInstance(this._selfInstance);
                 throw new Error('Failed to determine the master instance within ' +
-          `${process.env.SCRIPT_EXECUTION_EXPIRE_TIME} seconds. This instance is unable` +
-          ' to bootstrap. Please report this to administrators.');
+                    `${process.env.SCRIPT_EXECUTION_EXPIRE_TIME} seconds. This instance is unable` +
+                    ' to bootstrap. Please report this to administrators.');
             }
         }
 
@@ -1010,7 +1011,6 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
         // 1. this instance is under monitor and is healthy
         // 2. this instance is new and sending a respond with 'status: success'
         this._masterRecord = this._masterRecord || await this.platform.getMasterRecord();
-
         if (this._masterInfo && this._selfInstance.instanceId === this._masterInfo.instanceId &&
         this.scalingGroupName === this.masterScalingGroupName &&
         this._masterRecord && this._masterRecord.voteState === 'pending') {
@@ -1021,7 +1021,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
                 if (!await this.platform.finalizeMasterElection()) {
                     await this.platform.removeMasterRecord();
                     this._masterRecord = null;
-                    lifecycleShouldAbandon = true;
+
                 }
             }
         }
@@ -1057,8 +1057,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
                     'Bypass this request.');
             }
             return '';
-        } // else if (this._selfHealthCheck && this._selfHealthCheck.healthy && this._masterInfo)
-        else if (this._selfHealthCheck && this._masterInfo) {
+        } else if (this._selfHealthCheck && this._masterInfo) {
             // for those already in monitor, if there's a healthy master instance, keep track of
             // the master ip and notify the instanc with any change of the master ip.
             // if no master present (due to errors in master election), keep what ever master ip
@@ -1066,7 +1065,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
             let masterIp = this._masterInfo && masterHealthCheck && masterHealthCheck.healthy ?
                 this._masterInfo.primaryPrivateIpAddress : this._selfHealthCheck.masterIp;
             await this.platform.updateInstanceHealthCheck(this._selfHealthCheck, interval, masterIp,
-        Date.now());
+                Date.now());
 
             return {
                 'master-ip': masterIp
@@ -1081,7 +1080,7 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
                 // change its sync state to 'out of sync' by updating it state one last time
                 await this.platform.updateInstanceHealthCheck(this._selfHealthCheck, interval,
                     this._masterInfo ? this._masterInfo.primaryPrivateIpAddress : null,
-                    Date.now(), true);
+                        Date.now(), true);
                 // terminate it from autoscaling group
                 await this.removeInstance(this._selfInstance);
             }
@@ -1093,7 +1092,6 @@ class AliCloudAutoscaleHandler extends AutoscaleHandler {
     }
 }
 module.exports.handler = async function(req, resp,context) {
-    var handle = new AliCloud();
     var handler = new AliCloudAutoscaleHandler();
     // Parse Alicloud Buffer raw_body and pass to handleGetConfig.
     var getBody = await getRawBody(req);
@@ -1106,8 +1104,6 @@ module.exports.handler = async function(req, resp,context) {
     resp.send(result);
 };
 
-
-exports.moduleRuntimeId = () => moduleId;
 exports.AutoScaleCore = AutoScaleCore;
 exports.AliCloud = AliCloud;
 exports.AliCloudAutoscaleHandler = AliCloudAutoscaleHandler;

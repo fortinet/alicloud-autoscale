@@ -62,9 +62,7 @@ module.exports = class AutoscaleHandler {
 
     async getConfigSet(configName) {
         try {
-          
             let blob = await this.platform.getBlobFromStorage(configName);
-    
             return blob.content;
         } catch (error) {
             this.logger.warn(`called getConfigSet > error: ${error}`);
@@ -139,7 +137,7 @@ module.exports = class AutoscaleHandler {
      * @param {*} event event from the handling call. structure varies per platform.
      */
     async handleSyncedCallback(event) {
-        console.log("Self Instance ", this._selfInstance)
+        console.log('Self Instance ', this._selfInstance);
         const {
                 instanceId,
                 interval,
@@ -348,10 +346,10 @@ module.exports = class AutoscaleHandler {
                     });
                 }
             } else {
-                console.log("WERP")
-                //this.logger.warn('Unexpected heart beat callback request found because status:' +
-                 //   'success request hasn\'t been received yet. Not add instance to monitor. ' +
-                 //   'Bypass this request.');
+                console.log('WERP');
+                // this.logger.warn('Unexpected heart beat callback request found because status:' +
+                //   'success request hasn\'t been received yet. Not add instance to monitor. ' +
+                //   'Bypass this request.');
             }
             return '';
         } else if (this._selfHealthCheck && this._selfHealthCheck.healthy && this._masterInfo) {
@@ -512,15 +510,15 @@ module.exports = class AutoscaleHandler {
      * get the elected master instance info from the platform
      */
     async getMasterInfo() {
-        console.log("Getting Master Info")
-        //this.logger.info('calling getMasterInfo');
+        console.log('Getting Master Info');
+        // this.logger.info('calling getMasterInfo');
         let instanceId;
         try {
             this._masterRecord = this._masterRecord || await this.platform.getMasterRecord();
             instanceId = this._masterRecord && this._masterRecord.instanceId;
         } catch (ex) {
-            console.log(ex)
-           // this.logger.error(ex);
+            console.log(ex);
+            // this.logger.error(ex);
         }
         return this._masterRecord && await this.platform.describeInstance({
             instanceId: instanceId
@@ -533,7 +531,7 @@ module.exports = class AutoscaleHandler {
      * @param {Object} purgeMasterRecord master record of the old master, if it's dead.
      */
     async putMasterElectionVote(candidateInstance, purgeMasterRecord = null) {
-          try {
+        try {
             this.logger.log('masterElectionVote, purge master?', JSON.stringify(purgeMasterRecord));
             if (purgeMasterRecord) {
                 try {
@@ -643,7 +641,7 @@ module.exports = class AutoscaleHandler {
     }
 
     async removeInstanceFromMonitor(instanceId) {
-        //this.logger.info('calling removeInstanceFromMonitor');
+        // this.logger.info('calling removeInstanceFromMonitor');
         return await this.platform.deleteInstanceHealthCheck(instanceId);
     }
 

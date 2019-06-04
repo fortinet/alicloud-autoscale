@@ -1,0 +1,29 @@
+{
+  "name": "alicloud-autoscale",
+  "version": "1.0.0",
+  "description": "AliCloud FortiGate Autoscale Project",
+  "main": "index.js",
+  "dependencies": {
+    "@alicloud/pop-core": "^1.7.6",
+    "ali-oss": "^6.1.0",
+    "crypto": "^1.0.1",
+    "raw-body": "^2.3.3",
+    "tablestore": "^4.3.1",
+    "uuid": "^3.3.2"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0",
+    "eslint-plugin-json": "^1.2.1",
+    "eslint-plugin-mocha": "^5.2.0",
+    "ls": "^0.2.1",
+    "mocha": "^5.2.0",
+    "nyc": "^14.1.1"
+  },
+  "scripts": {
+    "pretest": "eslint --fix .",
+    "build": "scripts/make-dist.js all",
+    "test": "nyc mocha './{,!(node_modules|dist|scripts)/**/test/mocha/}*.js'"
+  },
+  "author": "Fortinet",
+  "license": "MIT"
+}
