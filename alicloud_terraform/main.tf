@@ -1,40 +1,3 @@
-# Access keys can be referenced from the command line via terraform plan -var "access_key=key"
-
-variable "access_key"{
-  type = "string"
-  default = ""
-}
-variable "secret_key"{
-  type = "string"
-  default = ""
-}
-
-# Configure the Alicloud Provider
-
-provider "alicloud" {
-  access_key = "${var.access_key}"
-  secret_key = "${var.secret_key}"
-  region     = "${var.region}"
-}
-variable "region" {
-    type = "string"
-    default = "us-east-1" //Default Region
-
-}
-data "alicloud_account" "current"{
-
-}
-
-variable "cluster_name"{
-    type = "string"
-    default = "FortigateAutoScale"
-}
-//Get Instance types with min requirements in the region.
-data "alicloud_instance_types" "types_ds" {
-  cpu_core_count = 2
-  memory_size = 8
-  instance_type_family = "ecs.g5"//"ecs.sn2ne"
-}
 
 data "alicloud_regions" "current_region_ds" {
   current = true
@@ -133,6 +96,48 @@ resource "alicloud_vswitch" "vsw2" {
   cidr_block        = "172.16.8.0/21"
   availability_zone = "${data.alicloud_zones.default.zones.1.id}"
 }
+//Nat Gateway
+
+resource "alicloud_nat_gateway" "nat_gateway" {
+    vpc_id = "${alicloud_vpc.vpc.id}"
+    name = "${var.cluster_name}-NatGateway-${random_string.random_name_post.result}"
+}
+
+
+//SNAT entries
+resource "alicloud_snat_entry" "snat_one"{
+  snat_table_id = "${alicloud_nat_gateway.nat_gateway.snat_table_ids}"
+  source_vswitch_id = "${alicloud_vswitch.vsw.id}"
+  snat_ip = "${alicloud_eip.eip_snat_one.ip_address}"
+  depends_on = ["alicloud_eip_association.eip_asso_snat_one"]
+}
+resource "alicloud_snat_entry" "snat_two"{
+  snat_table_id = "${alicloud_nat_gateway.nat_gateway.snat_table_ids}"
+  source_vswitch_id = "${alicloud_vswitch.vsw2.id}"
+  snat_ip = "${alicloud_eip.eip_snat_two.ip_address}"
+  depends_on = ["alicloud_eip_association.eip_asso_snat_two"]
+}
+//EIPs for SNAT
+resource "alicloud_eip" "eip_snat_one" {
+  bandwidth            = "100"
+  internet_charge_type = "PayByTraffic"
+}
+resource "alicloud_eip" "eip_snat_two" {
+  bandwidth            = "100"
+  internet_charge_type = "PayByTraffic"
+}
+//EIP associations
+resource "alicloud_eip_association" "eip_asso_snat_one" {
+  allocation_id = "${alicloud_eip.eip_snat_one.id}"
+  instance_id   = "${alicloud_nat_gateway.nat_gateway.id}"
+  depends_on = ["alicloud_eip.eip_snat_one"]
+}
+
+resource "alicloud_eip_association" "eip_asso_snat_two" {
+  allocation_id = "${alicloud_eip.eip_snat_two.id}"
+  instance_id   = "${alicloud_nat_gateway.nat_gateway.id}"
+  depends_on = ["alicloud_eip.eip_snat_two"]
+}
 
 
 resource "alicloud_slb" "default" {
@@ -179,32 +184,7 @@ resource "alicloud_slb_listener" "http" {
   acl_type                  = "white"
   acl_id                    = "${alicloud_slb_acl.acl.id}"
 }
-//Internal SLB
-resource "alicloud_slb" "internal_default" {
-  name                 = "${var.cluster_name}.SLB-internal-${random_string.random_name_post.result}"
-  internet             = false
-  internet_charge_type = "PayByTraffic"
-  instance_charge_type = "PostPaid"
-  bandwidth            = 100
-  specification = "slb.s1.small"
-  master_zone_id       = "${data.alicloud_zones.default.zones.0.id}"//first available zone
-  slave_zone_id        = "${data.alicloud_zones.default.zones.1.id}"//second available zone.
-  vswitch_id = "${alicloud_vswitch.vsw2.id}"
-}
-resource "alicloud_slb_listener" "tcp_internal" {
-  load_balancer_id = "${alicloud_slb.internal_default.id}"
-  backend_port = 443
-  frontend_port = 443
-  health_check = "on"
-  health_check_connect_port = 443
-  bandwidth = 100
-  protocol = "tcp"
-  sticky_session = "on" //Persistent session
-  sticky_session_type = "server" //Fortigate Serves the cookie.
-  cookie = "FortiGateAutoScaleSLB"
-  cookie_timeout = 86400
-  persistence_timeout = 3600
-}
+
 //Security Group ESS instances
 resource "alicloud_security_group" "SecGroup" {
   name        = "${var.cluster_name}-SecGroup-${random_string.random_name_post.result}"
@@ -290,7 +270,7 @@ data "alicloud_images" "ecs_image" {
 resource "alicloud_ess_scaling_group" "scalinggroups_ds" {
 
   // Autoscaling Group
-  depends_on = ["alicloud_slb_listener.http", "alicloud_slb_listener.tcp_internal"]
+  depends_on = ["alicloud_slb_listener.http"]
   scaling_group_name = "${var.cluster_name}-${random_string.random_name_post.result}"
   min_size           = 2
   max_size           = 3
@@ -300,8 +280,7 @@ resource "alicloud_ess_scaling_group" "scalinggroups_ds" {
 
 
   loadbalancer_ids = [
-    "${alicloud_slb.default.id}",
-    "${alicloud_slb.internal_default.id}"
+    "${alicloud_slb.default.id}"
   ]
 }
 //Scaling Config
@@ -357,7 +336,7 @@ resource "alicloud_ess_alarm" "cpu_alarm_scale_out" {
     //Average over 300 seconds - only supports 60/120/300/900
     period = 300
     statistics = "Average"
-    threshold = 60
+    threshold = "${var.scale_out_threshold}"
     comparison_operator = ">="
     evaluation_count = 3
 }
@@ -374,7 +353,7 @@ resource "alicloud_ess_alarm" "cpu_alarm_scale_in" {
     //Average over 900 seconds - only supports 60/120/300/900
     period = 900
     statistics = "Average"
-    threshold = 35
+    threshold = "${var.scale_in_threshold}"
     comparison_operator = "<="
     evaluation_count = 3
 }
@@ -461,24 +440,7 @@ resource "alicloud_ots_table" "table_FortiGateAutoscale" {
 
 
 //OSS
- resource "local_file" "LocalConfigWrite" {
-    content     = <<EOF
-config system dns
-   unset primary
-   unset secondary
-end
-config system auto-scale
-   set status enable
-   set sync-interface {SYNC_INTERFACE}
-   set role master
-   set callback-url {CALLBACK_URL}
-   set psksecret {PSK_SECRET}
 
-end
-
-    EOF
-    filename = "./cloud-init.sh"
-}
 resource "alicloud_oss_bucket" "FortiGateAutoScaleConfig" {
   bucket = "fortigateautoscaleconfig-${random_string.random_name_post.result}" //Must be in lower case.
   acl = "private"
@@ -486,9 +448,8 @@ resource "alicloud_oss_bucket" "FortiGateAutoScaleConfig" {
 
 resource "alicloud_oss_bucket_object" "object-content" {
   bucket = "${alicloud_oss_bucket.FortiGateAutoScaleConfig.bucket}"
-  key    = "cloud-init.sh"
-  source = "./cloud-init.sh"
-  depends_on = ["local_file.LocalConfigWrite"]
+  key    = "baseconfig"
+  source = "./assets/configset/baseconfig"
 }
 
 //Create the Function Service
@@ -542,8 +503,7 @@ resource "alicloud_fc_function" "fortigate-autoscale" {
     TABLE_STORE_END_POINT ="https://${alicloud_ots_instance.tablestore.name}.${var.region}.ots.aliyuncs.com"
     TABLE_STORE_INSTANCENAME ="${alicloud_ots_instance.tablestore.name}"
     AUTO_SCALING_GROUP_NAME="${alicloud_ess_scaling_group.scalinggroups_ds.scaling_group_name}"
-
-    BASE_CONFIG_NAME="cloud-init.sh"
+    BASE_CONFIG_NAME="baseconfig"
 
   }
 }
@@ -610,15 +570,23 @@ resource "alicloud_log_store_index" "log_store_index" {
     }
   ]
 }
-output "triggerUrl"{
-    value = "${alicloud_ess_scaling_configuration.config.user_data}"
-
-}
-output config{
-  value = "${local_file.LocalConfigWrite.content}"
-}
-
-
 output "PSK Secret"{
   value = "${random_string.psk.result}"
 }
+output "Auto Scaling Group ID" {
+  value = "${alicloud_ess_scaling_group.scalinggroups_ds.id}"
+}
+output "VPC name" {
+  value = "${alicloud_vpc.vpc.name}"
+}
+output "Scale Out Theshold" {
+  value = "${var.scale_out_threshold}"
+}
+output "Scale In Theshold" {
+  value = "${var.scale_in_threshold}"
+}
+output "AutoScale External Load Balancer IP" {
+  value = "${alicloud_slb.default.address}"
+}
+
+
