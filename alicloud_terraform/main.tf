@@ -261,11 +261,6 @@ resource "alicloud_security_group_rule" "allow_all_tcp_egress_FC" {
   security_group_id = "${alicloud_security_group.SecGroup_FC.id}"
   cidr_ip           = "0.0.0.0/0"
 }
-data "alicloud_images" "ecs_image" {
-  owners = "marketplace"
-  most_recent = true
-  name_regex  = "^Fortinet FortiGate"// Grab the latest Image from marketplace.
-}
 
 resource "alicloud_ess_scaling_group" "scalinggroups_ds" {
 
@@ -289,7 +284,7 @@ resource "alicloud_ess_scaling_configuration" "config" {
 
   force_delete = true
   scaling_group_id  = "${alicloud_ess_scaling_group.scalinggroups_ds.id}"
-  image_id          = "${data.alicloud_images.ecs_image.images.0.id}" //grab the first image that matches the regex
+  image_id          = "${length(var.instance_ami) > 1 ? var.instance_ami : data.alicloud_images.ecs_image.images.0.id}"//grab the first image that matches the regex
   instance_type     = "${data.alicloud_instance_types.types_ds.instance_types.0.id}"//Grab the first instance that meets the requirements. Default 2 Cpu 8GB memory.
   security_group_id = "${alicloud_security_group.SecGroup.id}"
   internet_charge_type = "PayByTraffic"
@@ -363,7 +358,7 @@ resource "alicloud_ots_instance" "tablestore" {
   name = "FortiGateASG-${random_string.random_name_post.result}" //16 char limit
   description = "TableStore Instance Terraform"
   accessed_by = "Any"
-  instance_type = "HighPerformance"
+  instance_type = "${var.table_store_instance_type}"
   tags {
     Created = "TF"
     For = "FortiGate AutoScale Table"
@@ -570,6 +565,7 @@ resource "alicloud_log_store_index" "log_store_index" {
     }
   ]
 }
+
 output "PSK Secret"{
   value = "${random_string.psk.result}"
 }
