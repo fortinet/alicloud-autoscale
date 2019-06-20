@@ -437,7 +437,7 @@ resource "alicloud_ots_table" "table_FortiGateAutoscale" {
 //OSS
 
 resource "alicloud_oss_bucket" "FortiGateAutoScaleConfig" {
-  bucket = "fortigateautoscaleconfig-${random_string.random_name_post.result}" //Must be in lower case.
+  bucket = "${var.bucket_name}-${random_string.random_name_post.result}" //Must be in lower case.
   acl = "private"
 }
 

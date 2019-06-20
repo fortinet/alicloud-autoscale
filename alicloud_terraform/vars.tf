@@ -1,19 +1,19 @@
 # Access keys can be referenced from the command line via terraform plan -var "access_key=key"
 variable "access_key"{
-  type = "string"
-  default = ""
+    type = "string"
+    default = ""
 }
 variable "secret_key"{
-  type = "string"
-  default = ""
+    type = "string"
+    default = ""
 }
 
 # Configure the Alicloud Provider
 
 provider "alicloud" {
-  access_key = "${var.access_key}"
-  secret_key = "${var.secret_key}"
-  region     = "${var.region}"
+    access_key = "${var.access_key}"
+    secret_key = "${var.secret_key}"
+    region     = "${var.region}"
 }
 variable "region" {
     type = "string"
@@ -36,6 +36,12 @@ data "alicloud_account" "current"{
 variable "cluster_name"{
     type = "string"
     default = "FortigateAutoScale"
+}
+
+//OSS Bucket Name MUST be lowercase
+variable "bucket_name"{
+    type = "string"
+    default = "fortigateautoscale"
 }
 //If an AMI is specified it will be chosen
 //Otherwise the ESS config will default to the latest Fortigate version
