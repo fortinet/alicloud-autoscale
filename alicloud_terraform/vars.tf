@@ -32,6 +32,7 @@ variable "vswitch_cidr_2"{
     type = "string"
     default = "172.16.8.0/21"
 }
+
 //CPU threshold to scale in or out
 variable "scale_in_threshold"{
     type = "string"
@@ -67,7 +68,7 @@ variable "instance_ami" {
 //default family : ecs.sn2ne
 variable "instance" {
     type = "string"
-    default = "ecs.sn2ne"
+    default = "ecs.c5"
 }
 //Specify the TableStore instance type - This is regionaly dependent
 //See the following for supported regions:
@@ -82,7 +83,7 @@ variable "table_store_instance_type" {
 //If left with no instance_type_family the return may include shared instances.
 data "alicloud_instance_types" "types_ds" {
     cpu_core_count = 2
-    memory_size = 8
+    memory_size = 4
     instance_type_family = "${var.instance}" //ecs.g5 is default
 }
 

@@ -448,9 +448,12 @@ resource "alicloud_fc_service" "fortigate-autoscale-service" {
             logstore = "${alicloud_log_store.AutoScaleLogging-Store.name}"
         }
     ]
+    //ENI vswitch attachment:
+    //Function Compute runs in the VPC.
+    //The Indonesia Region requires this attachment in zone b whereas others require it in zone a
     vpc_config = [
         {
-            vswitch_ids = ["${alicloud_vswitch.vsw.id}"]
+            vswitch_ids = ["${var.region == "ap-southeast-5" ? alicloud_vswitch.vsw2.id : alicloud_vswitch.vsw.id}"]
             security_group_id  = "${alicloud_security_group.SecGroup_FC.id}"
         }
     ]
@@ -458,7 +461,7 @@ resource "alicloud_fc_service" "fortigate-autoscale-service" {
 //Function
 resource "alicloud_fc_function" "fortigate-autoscale" {
     service = "${alicloud_fc_service.fortigate-autoscale-service.name}"
-    name = "${var.cluster_name}-${random_string.random_name_post.result}"
+    name = "FortiGateASG-${random_string.random_name_post.result}"
     description = "FortiGate AutoScale - AliCloud Created by Terraform"
     filename = "../dist/alicloud-autoscale.zip"
     memory_size = "512"
@@ -485,6 +488,7 @@ resource "alicloud_fc_function" "fortigate-autoscale" {
         TABLE_STORE_INSTANCENAME ="${alicloud_ots_instance.tablestore.name}"
         AUTO_SCALING_GROUP_NAME="${alicloud_ess_scaling_group.scalinggroups_ds.scaling_group_name}"
         BASE_CONFIG_NAME="baseconfig"
+        FORTIGATE_ADMIN_PORT = 8443
     }
 }
 //Function Compute Trigger

@@ -10,5 +10,6 @@ config system auto-scale
    set psksecret {PSK_SECRET}
 
 end
-
-    
+config system global
+    set admin-sport {ADMIN_PORT}
+end
