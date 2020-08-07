@@ -385,8 +385,9 @@ resource "alicloud_ots_table" "table_FortiGateLifecycleItem" {
     max_version = "1"
 
 }
-resource "alicloud_ots_table" "table_FortiGateMasterElection" {
+resource "alicloud_ots_table" "table_FortiGateMainElection" {
     instance_name = "${alicloud_ots_instance.tablestore.name}"
+    #TODO: change to FortiGateMainElection, requires DB Change.
     table_name = "FortiGateMasterElection"
     primary_key = [
         {
