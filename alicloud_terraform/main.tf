@@ -141,8 +141,9 @@ resource "alicloud_slb" "default" {
     internet_charge_type = "PayByTraffic"
     bandwidth            = 5
     specification = "slb.s1.small"
-    primary_zone_id       = "${data.alicloud_zones.default.zones.0.id}"//first available zone
-    secondary_zone_id        = "${data.alicloud_zones.default.zones.1.id}"//second available zone.
+    // AliCloud specific variables.
+    master_zone_id       = "${data.alicloud_zones.default.zones.0.id}"//first available zone
+    slave_zone_id        = "${data.alicloud_zones.default.zones.1.id}"//second available zone.
 }
 resource "alicloud_slb_acl" "acl" {
     name = "${var.cluster_name}-ACL-${random_string.random_name_post.result}"
