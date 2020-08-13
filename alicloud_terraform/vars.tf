@@ -61,7 +61,7 @@ variable "bucket_name"{
 //Otherwise the ESS config will default to the latest Fortigate version
 variable "instance_ami" {
     type = "string"
-    default = ""
+    default = "m-0xif6xxwhjlqhoaqjrr6"
 }
 
 //Define the instance family to be used.
