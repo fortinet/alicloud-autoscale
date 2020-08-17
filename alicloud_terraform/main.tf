@@ -141,6 +141,7 @@ resource "alicloud_slb" "default" {
     internet_charge_type = "PayByTraffic"
     bandwidth            = 5
     specification = "slb.s1.small"
+    // AliCloud specific variables.
     master_zone_id       = "${data.alicloud_zones.default.zones.0.id}"//first available zone
     slave_zone_id        = "${data.alicloud_zones.default.zones.1.id}"//second available zone.
 }
@@ -385,8 +386,9 @@ resource "alicloud_ots_table" "table_FortiGateLifecycleItem" {
     max_version = "1"
 
 }
-resource "alicloud_ots_table" "table_FortiGateMasterElection" {
+resource "alicloud_ots_table" "table_FortiGateMainElection" {
     instance_name = "${alicloud_ots_instance.tablestore.name}"
+    #TODO: change to FortiGateMainElection, requires DB Change.
     table_name = "FortiGateMasterElection"
     primary_key = [
         {
